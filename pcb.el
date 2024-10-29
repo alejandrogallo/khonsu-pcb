@@ -68,10 +68,6 @@ and the attributes a list with the properties, such as
                ,@attributes
                ,@rest))))
 
-(pcb-apply-module (pcb-find-module "MX-6U")
-                  `((at penis ass rotation)))
-
-
 (defvar pcb-default-setup
   `((last_trace_width 0.2032)
     (trace_clearance 0.254)
@@ -238,46 +234,6 @@ to set the position and the pad connections."
 (defun pcb-module (name)
   "Function to call to get a module from a name."
   (pcb-module-fn (pcb-find-module name)))
-
-(defvar x-mx (pcb-find-module "MX-6U"))
-(funcall (pcb-module-pads x-mx)
-         5 9 98 9 8 7 9)
-(pcb-module "MX-6U")
-
-
-
-(defun pcb-switch-module (x y rotation label net-pos net-neg)
-  `(module MX_FLIP
-           (layer Front) (tedit 4FD81CDD) (tstamp 543EF801)
-           (at ,x ,y ,rotation)
-           (path /543DB910) ; TODO: this is not documented; no idea what it does
-           (fp_text reference ,label (at 0 3.302 ,rotation) (layer F.SilkS)
-                    (effects (font (size 1.524 1.778) (thickness 0.254))))
-           (fp_line (start -6.35 -6.35) (end 6.35 -6.35)
-                    (layer F.SilkS) (width 0.381))
-           (fp_line (start 6.35 -6.35) (end 6.35 6.35)
-                    (layer F.SilkS) (width 0.381))
-           (fp_line (start 6.35 6.35) (end -6.35 6.35)
-                    (layer F.SilkS) (width 0.381))
-           (fp_line (start -6.35 6.35) (end -6.35 -6.35)
-                    (layer F.SilkS) (width 0.381))
-           (pad 0 np_thru_hole circle (at 0 0) (size 3.9878 3.9878)
-                (drill 3.9878))         ; switch hole, no copper
-           (pad 0 np_thru_hole circle (at -5.08 0) (size 1.7018 1.7018)
-                (drill 1.7018))         ; board-mount hole, no copper
-           (pad 0 np_thru_hole circle (at 5.08 0) (size 1.7018 1.7018)
-                (drill 1.7018))         ; board-mount hole, no copper
-           (pad 1 thru_hole circle (at 2.54 -5.08) (size 2.286 2.286) (drill 1.4986)
-                (layers *.Cu *.SilkS *.Mask) ,net-pos)
-           (pad 1 thru_hole circle (at 3.81 -2.54) (size 2.286 2.286) (drill 1.4986)
-                (layers *.Cu *.SilkS *.Mask) ,net-pos)
-           (pad 2 thru_hole circle (at -2.54 -5.08) (size 2.286 2.286) (drill 1.4986)
-                (layers *.Cu *.SilkS *.Mask) ,net-neg)
-           (pad 2 thru_hole circle (at -3.81 -2.54) (size 2.286 2.286) (drill 1.4986)
-                (layers *.Cu *.SilkS *.Mask) ,net-neg)))
-
-
-
 
 
 (let ((mx (pcb-module "MX-6U")))
