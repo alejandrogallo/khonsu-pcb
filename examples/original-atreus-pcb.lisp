@@ -76,8 +76,7 @@
                    (mirror false)
                    (drillshape 1)
                    (scaleselection 1)
-                   (outputdirectory ""))
-                  )
+                   (outputdirectory "")))
 
 (net 0 "")
 (net 1 N-row-0)

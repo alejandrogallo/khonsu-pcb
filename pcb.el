@@ -25,7 +25,7 @@
 ;;; Code:
 
 (require 'cl-lib)
-
+(require 'dash)
 
 (defvar pcb-kicad-modules nil)
 (defun pcb-refresh-kicad-cache ()
@@ -44,6 +44,16 @@
       (error "Could not find the modules with name %s" name))
     (with-current-buffer (find-file-noselect (car found))
       (read (buffer-string)))))
+
+(defun pcb-extract-nets (modules)
+  "Extract nets informations from a list of MODULES or any s-expression really."
+  (let (nets)
+    (-tree-map-nodes (lambda (x) (pcase x
+                                   (`(net ,_ ,_) t)))
+                     (lambda (net) (cl-pushnew net nets
+                                               :test #'equal))
+                     modules)
+    (cl-sort nets #'< :key #'cadr)))
 
 (defun pcb-apply-module (module attributes)
   "Add ATTRIBUTES to module such as (at x y rotation) etc.
@@ -117,59 +127,88 @@ and the attributes a list with the properties, such as
      (outputdirectory ""))))
 
 (cl-defun pcb-render (&key
+                        file
                         (thickness 1.6002)
                         (setup pcb-default-setup)
                         drawings
-                        nets
                         modules
+                        ;; nets 0 is missing
+                        (nets (append '((net 0 ""))
+                                      (pcb-extract-nets modules)))
                         zones
                         links
                         tracks)
   "Create the pcb header of the file"
-  `(kicad_pcb (version 3)
-              (host pcbnew "(2014-02-26 BZR 4721)-product")
-              (general (links ,(length links))
-                       (no_connects ,(length links))
-                       (area 15.560886 13.205459 268.695594 107.670601)
-                       (thickness ,thickness)
-                       (drawings ,(length drawings))
-                       (tracks ,(length tracks))
-                       (zones ,(length zones))
-                       (modules ,(length modules))
-                       (nets ,(length nets)))
-              (page A4)
-              (title_block (date "16 oct 2014"))
-              (layers (15 Front signal)
-                      (0 Back signal)
-                      (16 B.Adhes user)
-                      (17 F.Adhes user)
-                      (18 B.Paste user)
-                      (19 F.Paste user)
-                      (20 B.SilkS user)
-                      (21 F.SilkS user)
-                      (22 B.Mask user)
-                      (23 F.Mask user)
-                      (24 Dwgs.User user)
-                      (25 Cmts.User user)
-                      (26 Eco1.User user)
-                      (27 Eco2.User user)
-                      (28 Edge.Cuts user))
-              (setup ,@setup)
-              (gr_text Khonsu (at 131.5 84) (layer F.SilkS)
-                       (effects (font (size 4 3) (thickness 0.3048))))
-              (gr_text "Alejandro Gallo" (at 145.25 107.5) (layer F.SilkS)
-                       (effects (font (size 2.032 1.524) (thickness 0.3048))))
-              (gr_text "GPLv3" (at 68.5 98.5 350) (layer F.SilkS)
-                       (effects (font (size 1.5 1.1) (thickness 0.2))))
-              (gr_text https://atreus.technomancy.us (at 63 100.5 350) (layer F.SilkS)
-                       (effects (font (size 2.032 1.524) (thickness 0.3048))))
-              (gr_text "rev 3, Apr 2019" (at 200.5 101.5 10) (layer F.SilkS)
-                       (effects (font (size 2.032 1.524) (thickness 0.3048))))
-              (gr_text "© 2014-2019" (at 117 107.75) (layer F.SilkS)
-                       (effects (font (size 2.032 1.524) (thickness 0.3048))))
-              ,@modules))
+  (let ((result `(kicad_pcb (version 3)
+                            (host pcbnew "(2014-02-26 BZR 4721)-product")
+                            (general (links ,(length links))
+                                     (no_connects ,(length links))
+                                     (area 15.560886 13.205459 268.695594 107.670601)
+                                     (thickness ,thickness)
+                                     (drawings ,(length drawings))
+                                     (tracks ,(length tracks))
+                                     (zones ,(length zones))
+                                     (modules ,(length modules))
+                                     (nets ,(length nets)))
+                            (page A4)
+                            (title_block (date "16 oct 2014"))
+                            (layers (15 Front signal)
+                                    (0 Back signal)
+                                    (16 B.Adhes user)
+                                    (17 F.Adhes user)
+                                    (18 B.Paste user)
+                                    (19 F.Paste user)
+                                    (20 B.SilkS user)
+                                    (21 F.SilkS user)
+                                    (22 B.Mask user)
+                                    (23 F.Mask user)
+                                    (24 Dwgs.User user)
+                                    (25 Cmts.User user)
+                                    (26 Eco1.User user)
+                                    (27 Eco2.User user)
+                                    (28 Edge.Cuts user))
+                            (setup ,@setup)
+                            ,@nets
+                            (net_class
+                             Default
+                             "This is the default net class."
+                             (clearance 0.254)
+                             (trace_width 0.2032)
+                             (via_dia 0.889)
+                             (via_drill 0.635)
+                             (uvia_dia 0.508)
+                             (uvia_drill 0.127)
+                             ,@(mapcar (lambda (net) `(add_net ,(nth 2 net)))
+                                       nets))
+                            (gr_text Khonsu (at 131.5 84) (layer F.SilkS)
+                                     (effects (font (size 4 3) (thickness 0.3048))))
+                            (gr_text "Alejandro Gallo" (at 145.25 107.5) (layer F.SilkS)
+                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            (gr_text "GPLv3" (at 68.5 98.5 350) (layer F.SilkS)
+                                     (effects (font (size 1.5 1.1) (thickness 0.2))))
+                            (gr_text https://atreus.technomancy.us (at 63 100.5 350) (layer F.SilkS)
+                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            (gr_text "rev 3, Apr 2019" (at 200.5 101.5 10) (layer F.SilkS)
+                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            (gr_text "© 2014-2019" (at 117 107.75) (layer F.SilkS)
+                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            ,@modules)))
+    (if file
+        (with-current-buffer (find-file-noselect file)
+          (erase-buffer)
+          (insert (format "%S" result))
+          (lisp-data-mode)
+          (pp-buffer)
+          (save-buffer)
+          file)
+      result)))
 
-(defun pcb-module-pads (module)
+(defun pcb-module-fn (module)
+  "Create a function from a module to render the s-expression.
+
+MODULE must be the original s-expression.  This function
+finds the pads of the module and returns a lambda which can be called
+to set the position and the pad connections."
   (let (pad-indices)
     (let ((result (-tree-map-nodes (lambda (x)
                                      (pcase x
@@ -196,8 +235,15 @@ and the attributes a list with the properties, such as
                       (pcb-apply-module ',result
                                         `((at ,x ,y ,rotation)))))))))
 
+(defun pcb-module (name)
+  "Function to call to get a module from a name."
+  (pcb-module-fn (pcb-find-module name)))
+
 (defvar x-mx (pcb-find-module "MX-6U"))
-(pcb-module-pads x-mx)
+(funcall (pcb-module-pads x-mx)
+         5 9 98 9 8 7 9)
+(pcb-module "MX-6U")
+
 
 
 (defun pcb-switch-module (x y rotation label net-pos net-neg)
@@ -216,11 +262,11 @@ and the attributes a list with the properties, such as
            (fp_line (start -6.35 6.35) (end -6.35 -6.35)
                     (layer F.SilkS) (width 0.381))
            (pad 0 np_thru_hole circle (at 0 0) (size 3.9878 3.9878)
-                (drill 3.9878)) ; switch hole, no copper
+                (drill 3.9878))         ; switch hole, no copper
            (pad 0 np_thru_hole circle (at -5.08 0) (size 1.7018 1.7018)
-                (drill 1.7018)) ; board-mount hole, no copper
+                (drill 1.7018))         ; board-mount hole, no copper
            (pad 0 np_thru_hole circle (at 5.08 0) (size 1.7018 1.7018)
-                (drill 1.7018)) ; board-mount hole, no copper
+                (drill 1.7018))         ; board-mount hole, no copper
            (pad 1 thru_hole circle (at 2.54 -5.08) (size 2.286 2.286) (drill 1.4986)
                 (layers *.Cu *.SilkS *.Mask) ,net-pos)
            (pad 1 thru_hole circle (at 3.81 -2.54) (size 2.286 2.286) (drill 1.4986)
@@ -230,8 +276,18 @@ and the attributes a list with the properties, such as
            (pad 2 thru_hole circle (at -3.81 -2.54) (size 2.286 2.286) (drill 1.4986)
                 (layers *.Cu *.SilkS *.Mask) ,net-neg)))
 
-(let ((mx (pcb-find-module "MX-6U")))
-  (pcb-render :modules (list )))
+
+
+
+
+(let ((mx (pcb-module "MX-6U")))
+  (pcb-render
+   :file "test.kicad_pcb"
+   :modules (list (funcall mx 0 0 0
+                           '(net 1 COL-0)
+                           '(net 1 COL-0)
+                           '(net 2 COL-1)
+                           '(net 2 COL-1)))))
 
 
 (provide 'pcb)
