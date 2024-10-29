@@ -5,6 +5,8 @@ all: $(LIBRARIES)
 clean:
 	rm -rf $(LIBRARIES)
 
+update-libs: clean all
+
 CLONE = git clone --depth=1
 
 Keebio-Parts.pretty:
