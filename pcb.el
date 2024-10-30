@@ -176,18 +176,18 @@ and the attributes a list with the properties, such as
                              (uvia_drill 0.127)
                              ,@(mapcar (lambda (net) `(add_net ,(nth 2 net)))
                                        nets))
-                            (gr_text Khonsu (at 131.5 84) (layer F.SilkS)
-                                     (effects (font (size 4 3) (thickness 0.3048))))
-                            (gr_text "Alejandro Gallo" (at 145.25 107.5) (layer F.SilkS)
-                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
-                            (gr_text "GPLv3" (at 68.5 98.5 350) (layer F.SilkS)
-                                     (effects (font (size 1.5 1.1) (thickness 0.2))))
-                            (gr_text https://atreus.technomancy.us (at 63 100.5 350) (layer F.SilkS)
-                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
-                            (gr_text "rev 3, Apr 2019" (at 200.5 101.5 10) (layer F.SilkS)
-                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
-                            (gr_text "© 2014-2019" (at 117 107.75) (layer F.SilkS)
-                                     (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            ;; (gr_text Khonsu (at 131.5 84) (layer F.SilkS)
+                            ;;          (effects (font (size 4 3) (thickness 0.3048))))
+                            ;; (gr_text "Alejandro Gallo" (at 145.25 107.5) (layer F.SilkS)
+                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            ;; (gr_text "GPLv3" (at 68.5 98.5 350) (layer F.SilkS)
+                            ;;          (effects (font (size 1.5 1.1) (thickness 0.2))))
+                            ;; (gr_text https://atreus.technomancy.us (at 63 100.5 350) (layer F.SilkS)
+                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            ;; (gr_text "rev 3, Apr 2019" (at 200.5 101.5 10) (layer F.SilkS)
+                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
+                            ;; (gr_text "© 2014-2019" (at 117 107.75) (layer F.SilkS)
+                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
                             ,@modules)))
     (if file
         (with-current-buffer (find-file-noselect file)
@@ -232,18 +232,38 @@ to set the position and the pad connections."
                                         `((at ,x ,y ,rotation)))))))))
 
 (defun pcb-module (name)
-  "Function to call to get a module from a name."
+  "Function to call to get a module from a NAME."
   (pcb-module-fn (pcb-find-module name)))
 
+(defun pcb-preview-module (name)
+  "Preview a part search by NAME."
+  (interactive (list (pcb-read-module-name)))
+  (let ((module (pcb-find-module name))
+        (pcb (make-temp-file (concat "kicad-" name "-") nil ".kicad_pcb")))
+    (pcb-render
+     :file pcb
+     :modules (list module))
+    (shell-command (format "pcbnew %s" pcb))
+    pcb))
 
-(let ((mx (pcb-module "MX-6U")))
+(defun pcb-read-module-name ()
+  "Get a name from the available paths."
+  (interactive)
+  (f-base
+   (f-no-ext (completing-read "Part: " pcb-kicad-modules))))
+
+(let ((mx (pcb-module "MX-1.25U"))
+      (sep 30))
   (pcb-render
    :file "test.kicad_pcb"
-   :modules (list (funcall mx 0 0 0
-                           '(net 1 COL-0)
-                           '(net 1 COL-0)
-                           '(net 2 COL-1)
-                           '(net 2 COL-1)))))
+   :modules (cl-loop for i from 1 to 10
+                  appending
+                  (cl-loop for j from 1 to 10
+                        collect (funcall mx (* i sep) (* j sep) i
+                                         `(net ,i ,(intern (format "COL-%s" i)))
+                                         `(net ,i ,(intern (format "COL-%s" i)))
+                                         '(net 100 ROW-1)
+                                         '(net 100 ROW-1))))))
 
 
 (provide 'pcb)
