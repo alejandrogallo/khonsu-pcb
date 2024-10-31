@@ -29,6 +29,7 @@
 
 (defvar pcb-kicad-modules nil)
 (defun pcb-refresh-kicad-cache ()
+  (interactive)
   (setf pcb-kicad-modules
         (directory-files-recursively "." ".*.kicad_mod")))
 
@@ -63,7 +64,7 @@ and the attributes a list with the properties, such as
 
   ((at x y 0.5) (fp_line ....))"
   (pcase module
-    (`(module ,name . ,rest)
+    (`(,(or 'module 'footprint) ,name . ,rest)
       `(module ,name
                ,@attributes
                ,@rest))))
@@ -199,6 +200,14 @@ and the attributes a list with the properties, such as
           file)
       result)))
 
+(defun pcb-pad-valid-p (expr)
+  (pcase expr
+    ((and `(pad ,n . ,_)
+          (guard (or (numberp n)
+                     (and (stringp n)
+                          (not (string= "" n))))))
+     t)))
+
 (defun pcb-module-fn (module)
   "Create a function from a module to render the s-expression.
 
@@ -206,21 +215,18 @@ MODULE must be the original s-expression.  This function
 finds the pads of the module and returns a lambda which can be called
 to set the position and the pad connections."
   (let (pad-indices)
-    (let ((result (-tree-map-nodes (lambda (x)
-                                     (pcase x
-                                       ((and `(pad ,n . ,_)
-                                             (guard (numberp n)))
-                                        (cl-pushnew (cons n (gensym))
-                                                    pad-indices
-                                                    :key #'car)
-                                        t)))
-                                   (lambda (x)
-                                     (pcase x
-                                       ((and `(pad ,n . ,_)
-                                             (guard (numberp n)))
-                                        (let ((variable (alist-get n pad-indices)))
-                                          `(,@x ,variable)))))
-                                   module)))
+    (let ((result (-tree-map-nodes  #'pcb-pad-valid-p
+                                    (lambda (x)
+                                      (pcase x
+                                        (`(pad ,n . ,_)
+                                          ;; turn n into a number
+                                          (setf n (read (format "%s" n)))
+                                          (cl-pushnew (cons n (gensym))
+                                                      pad-indices
+                                                      :key #'car)
+                                          (let ((variable (alist-get n pad-indices)))
+                                            `(,@x ,variable)))))
+                                    module)))
       (setf pad-indices (cl-sort pad-indices #'< :key #'car))
       (let ((pad-vars (mapcar (lambda (ip) (intern (format "pad-%s" (car ip))))
                               pad-indices)))
@@ -306,14 +312,16 @@ to set the position and the pad connections."
         (sep 30))
     (pcb-render
      :file "test.kicad_pcb"
-     :modules (cl-loop for (x y rot) in (append khonsu-left khonsu-right)
-                    for i from 1
-                    collect
-                    (funcall mx x y rot
-                             `(net ,i ,(intern (format "COL-%s" i)))
-                             ;; `(net ,i ,(intern (format "COL-%s" i)))
-                             ;; '(net 100 ROW-1)
-                             '(net 100 ROW-1))))))
+     :modules (append
+               (list (pcb-find-module "ArduinoProMicro-ZigZag"))
+               (cl-loop for (x y rot) in (append khonsu-left khonsu-right)
+                     for i from 1
+                     collect
+                     (funcall mx x y rot
+                              `(net ,i ,(intern (format "COL-%s" i)))
+                              ;; `(net ,i ,(intern (format "COL-%s" i)))
+                              ;; '(net 100 ROW-1)
+                              '(net 100 ROW-1)))))))
 
 
 (provide 'pcb)
