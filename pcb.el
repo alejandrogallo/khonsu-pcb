@@ -249,21 +249,71 @@ to set the position and the pad connections."
 (defun pcb-read-module-name ()
   "Get a name from the available paths."
   (interactive)
-  (f-base
-   (f-no-ext (completing-read "Part: " pcb-kicad-modules))))
+  (let ((part (f-base
+               (f-no-ext (completing-read "Part: " pcb-kicad-modules)))))
+    (if (called-interactively-p)
+        (insert part)
+      part)))
 
-(let ((mx (pcb-module "MX-1.25U"))
-      (sep 30))
-  (pcb-render
-   :file "test.kicad_pcb"
-   :modules (cl-loop for i from 1 to 10
-                  appending
-                  (cl-loop for j from 1 to 10
-                        collect (funcall mx (* i sep) (* j sep) i
-                                         `(net ,i ,(intern (format "COL-%s" i)))
-                                         `(net ,i ,(intern (format "COL-%s" i)))
-                                         '(net 100 ROW-1)
-                                         '(net 100 ROW-1))))))
+
+(defun x-rotation-matrix (theta x y)
+  (list (- (* (cos theta) x)
+           (* (sin theta) y))
+        (+ (* (sin theta) x)
+           (* (cos theta) y))))
+
+(let ((halves-distance 78.84))
+  (defvar khonsu-left)
+  (defvar khonsu-right)
+  (setq khonsu-left
+        (let* ((d 14.0)
+               (l (/ d 2 (cos (/ pi 4))))
+               (newx (lambda (r x)
+                       (+ x (* l (cos (* (/ pi 180) (+ r 45))))))))
+
+          (print l)
+          (cl-loop for (x y r) in
+                '((20.143677 54.976223 6.2)
+                  (20.143389 35.976223 6.2)
+                  (20.143112 16.976318 6.2)
+                  (47.906918 37.825253 15)
+                  (47.906918 18.825527 15)
+                  (47.907055 -0.17423382 15)
+                  (66.908943 35.446472 15)
+                  (66.908936 16.446556 15)
+                  (66.908943 -2.5535133 15)
+                  (86.644196 48.233135 20.17)
+                  (90.180908 29.238045 20.17)
+                  (90.124535 10.238224 20.17)
+                  (90.068161 -8.7615986 20.17)
+                  (112.7235 21.090336 25)
+                  (112.72351 2.0906093 25)
+                  (112.72351 -16.909651 25)
+                  (118.35073 25.000484 32.8)
+                  (142.13301 -30.871574 56.33))
+                collect (cl-destructuring-bind (x y) (x-rotation-matrix (* (/ pi 180) r) x y)
+                          (list (+ x (* l (cos (* (+ 45 r) (/ pi 180)))))
+                                (+ y (* l (sin (* (+ 45 r) (/ pi 180)))))
+                                (- r))))))
+
+  (setq khonsu-right
+        (let ((max (caar (cl-sort khonsu-left #'> :key #'car))))
+          (cl-loop for (x y r) in khonsu-left
+                collect (list (+ max max halves-distance (- x))
+                              y
+                              (- r)))))
+  (let ((mx (pcb-module "Kailh_socket_MX_optional_reversible_platemount"))
+        (sep 30))
+    (pcb-render
+     :file "test.kicad_pcb"
+     :modules (cl-loop for (x y rot) in (append khonsu-left khonsu-right)
+                    for i from 1
+                    collect
+                    (funcall mx x y rot
+                             `(net ,i ,(intern (format "COL-%s" i)))
+                             ;; `(net ,i ,(intern (format "COL-%s" i)))
+                             ;; '(net 100 ROW-1)
+                             '(net 100 ROW-1))))))
 
 
 (provide 'pcb)
