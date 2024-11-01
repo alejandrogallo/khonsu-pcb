@@ -24,6 +24,8 @@
 
 ;;; Code:
 
+;; https://dev-docs.kicad.org/en/file-formats/sexpr-intro/index.html
+
 (require 'cl-lib)
 (require 'dash)
 
@@ -241,16 +243,19 @@ to set the position and the pad connections."
   "Function to call to get a module from a NAME."
   (pcb-module-fn (pcb-find-module name)))
 
+(defun pcb-preview-sexp (sexp)
+  "Preview a module given in SEXP as a s-sexpression."
+  (let ((pcb (make-temp-file (concat "kicad-" (format "%s" (cadr sexp)) "-") nil ".kicad_pcb")))
+    (pcb-render
+     :file pcb
+     :modules (list sexp))
+    (shell-command (format "pcbnew %s" pcb))
+    pcb))
+
 (defun pcb-preview-module (name)
   "Preview a part search by NAME."
   (interactive (list (pcb-read-module-name)))
-  (let ((module (pcb-find-module name))
-        (pcb (make-temp-file (concat "kicad-" name "-") nil ".kicad_pcb")))
-    (pcb-render
-     :file pcb
-     :modules (list module))
-    (shell-command (format "pcbnew %s" pcb))
-    pcb))
+  (pcb-preview-sexp (pcb-find-module name)))
 
 (defun pcb-read-module-name ()
   "Get a name from the available paths."
@@ -267,6 +272,37 @@ to set the position and the pad connections."
            (* (sin theta) y))
         (+ (* (sin theta) x)
            (* (cos theta) y))))
+
+
+
+;; https://dev-docs.kicad.org/en/file-formats/sexpr-intro/index.html#_footprint_pad
+;; thru_hole, smd, connect, or np_thru_hole
+;; circle, rect, oval, trapezoid, roundrect, or custom
+(cl-defun pcb-element-thru-holes (nx ny &key
+                                          (x-sep 2.5)
+                                          (y-sep 2.5)
+                                          (type 'thru_hole)
+                                          (shape 'circle)
+                                          (size '(1.7526 1.7526))
+                                          (drill 1.0922))
+  "Make "
+  (assert (memq type '(thru_hole smd connect np_thru_hole)))
+  (assert (memq shape '(circle rect oval trapezoid roundrect custom)))
+  `(footprint pcb-element-thru-holes
+              ,@(let ((index 0))
+                  (cl-loop for i below nx
+                        appending
+                        (cl-loop for j below ny
+                              collect (progn
+                                        (cl-incf index)
+                                        `(pad ,index ,type ,shape
+                                              (at ,(* x-sep i)
+                                                  ,(* y-sep j))
+                                              (size ,@size)
+                                              (drill ,drill)
+                                              (layers *.Cu *.SilkS *.Mask))))))))
+
+
 
 (let ((halves-distance 78.84))
   (defvar khonsu-left)
@@ -313,7 +349,9 @@ to set the position and the pad connections."
     (pcb-render
      :file "test.kicad_pcb"
      :modules (append
-               (list (pcb-find-module "ArduinoProMicro-ZigZag"))
+               (list (pcb-find-module "ArduinoProMicro-ZigZag")
+                     (pcb-apply-module (pcb-element-thru-holes 2 10)
+                                       '((at 0 50))))
                (cl-loop for (x y rot) in (append khonsu-left khonsu-right)
                      for i from 1
                      collect
@@ -322,7 +360,6 @@ to set the position and the pad connections."
                               ;; `(net ,i ,(intern (format "COL-%s" i)))
                               ;; '(net 100 ROW-1)
                               '(net 100 ROW-1)))))))
-
 
 (provide 'pcb)
 ;;; pcb.el ends here
