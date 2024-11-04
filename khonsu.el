@@ -1,0 +1,95 @@
+
+(let ((kbd '((:row 1 :col 5 :x 112.6943488844372 :y 41.61614781757973 :angle -25 :side :left)
+             (:row 2 :col 5 :x 104.6644919038304 :y 58.83623168319304 :angle -25 :side :left)
+             (:row 3 :col 5 :x 96.63485136925017 :y 76.05582771678857 :angle -25 :side :left)
+             (:row 4 :col 5 :x 88.03071244598314 :y 94.80205775203294 :angle -32.8 :side :left)
+             (:row 1 :col 4 :x 91.72274014591343 :y 31.816191627451 :angle -20.17 :side :left)
+             (:row 2 :col 4 :x 85.22438970541285 :y 49.67026338746676 :angle -20.17 :side :left)
+             (:row 3 :col 4 :x 78.72603887792938 :y 67.52433330079788 :angle -20.17 :side :left)
+             (:row 4 :col 4 :x 68.85658496924832 :y 84.13504235921751 :angle -20.17 :side :left)
+             (:row 1 :col 3 :x 70.23972139567158 :y 23.424018391577484 :angle -15 :side :left)
+             (:row 2 :col 3 :x 65.32213484108308 :y 41.77667421799623 :angle -15 :side :left)
+             (:row 3 :col 3 :x 60.40460148641576 :y 60.12918559145244 :angle -15 :side :left)
+             (:row 1 :col 2 :x 51.26950418517363 :y 20.804175381964065 :angle -15 :side :left)
+             (:row 2 :col 2 :x 46.35187190072675 :y 39.15649959310805 :angle -15 :side :left)
+             (:row 3 :col 2 :x 41.43438096019722 :y 57.508825628923944 :angle -15 :side :left)
+             (:row 1 :col 1 :x 24.394924063805803 :y 26.76751826006319 :angle -6.2 :side :left)
+             (:row 2 :col 1 :x 22.343221945147185 :y 45.65632204701714 :angle -6.2 :side :left)
+             (:row 3 :col 1 :x 20.291520502210375 :y 64.54522146630558 :angle -6.2 :side :left)
+             (:row 1 :col 6 :x 102.54763109239295 :y 110.88052161780294 :angle -56.33 :side :left)
+
+             ;; right
+             (:row 2 :col 6 :x 201.6810666764815 :y 110.88052161780294 :angle 56.33 :side :right)
+             (:row 1 :col 7  :x 191.53434888443724 :y 41.61614781757973 :angle 25 :side :right)
+             (:row 2 :col 7 :x 199.56420586504404 :y 58.83623168319304 :angle 25 :side :right)
+             (:row 3 :col 7 :x 207.59384639962428 :y 76.05582771678857 :angle 25 :side :right)
+             (:row 4 :col 7 :x 216.1979853228913 :y 94.80205775203294 :angle 32.8 :side :right)
+             (:row 1 :col 8 :x 212.505957622961 :y 31.816191627451 :angle 20.17 :side :right)
+             (:row 2 :col 8 :x 219.0043080634616 :y 49.67026338746676 :angle 20.17 :side :right)
+             (:row 3 :col 8 :x 225.50265889094504 :y 67.52433330079788 :angle 20.17 :side :right)
+             (:row 4 :col 8 :x 235.3721127996261 :y 84.13504235921751 :angle 20.17 :side :right)
+             (:row 1 :col 9 :x 233.98897637320286 :y 23.424018391577484 :angle 15 :side :right)
+             (:row 2 :col 9 :x 238.90656292779136 :y 41.77667421799623 :angle 15 :side :right)
+             (:row 3 :col 9 :x 243.8240962824587 :y 60.12918559145244 :angle 15 :side :right)
+             (:row 1 :col 10 :x 252.95919358370082 :y 20.804175381964065 :angle 15 :side :right)
+             (:row 2 :col 10 :x 257.8768258681477 :y 39.15649959310805 :angle 15 :side :right)
+             (:row 3 :col 10 :x 262.7943168086772 :y 57.508825628923944 :angle 15 :side :right)
+             (:row 1 :col 11 :x 279.83377370506867 :y 26.76751826006319 :angle 6.2 :side :right)
+             (:row 2 :col 11 :x 281.88547582372723 :y 45.65632204701714 :angle 6.2 :side :right)
+             (:row 3 :col 11 :x 283.9371772666641 :y 64.54522146630558 :angle 6.2 :side :right)))
+      nets
+      (diode-front (pcb-module "diode-front"))
+      (diode-back (pcb-module "diode-back"))
+      (halves-distance 78.84)
+      (pro-micro (pcb-module "ArduinoProMicro"))
+      (mx (pcb-module "Kailh_socket_MX_optional_reversible_platemount")))
+
+  (cl-flet ((net (&rest labels)
+              (if-let ((net (alist-get labels nets nil nil #'equal)))
+                  net
+                (let ((net`(net ,(1+ (length nets))
+                                ,(format "%S" labels))))
+                  (push (cons labels net) nets)
+                  net))))
+    (pcb-render
+     :file "khonsu.kicad_pcb"
+     :modules (append
+               (list (apply pro-micro 150 35.5 -90
+                            `(,(net `(row 1))
+                               ,(net `(row 2))
+                               ,(net `(row 3))
+                               ,(net `(row 4))
+                               ,(net `(column 1))
+                               ,(net `(column 2))
+                               ,(net `(column 3))
+                               ,(net `(column 4))
+                               ,(net `(column 5))
+                               ,(net `(column 6))
+                               ,(net `(column 7))
+                               ,(net `(column 8))
+                               ,(net `(column 9))
+                               ,(net `(column 10))
+                               ,(net `(column 11))
+                               ,@(cl-loop for i from 16 to 24 collect (net :noconnect))))
+                     (pcb-element-rect '(0 0) '(300 150)
+                                       :layer 'Edge.Cuts
+                                       :solid nil)
+                     (pcb-apply-module (pcb-element-thru-holes 2 10)
+                                       '((at 109.5 74.5 -20))))
+               (cl-loop for key in kbd
+                     appending
+                     (cl-destructuring-bind (&key row col x y angle side) key
+                       (list
+                        (funcall (if (eq side :left)
+                                     diode-front
+                                   diode-back)
+                                 (+ 126 (* col 5))
+                                 (+ 60 (* row 12))
+                                 (if (eq side :left)
+                                     130
+                                   50)
+                                 (net `(diode row ,row col ,col))
+                                 (net `(column ,col)))
+                        (funcall mx x y angle
+                                 (net `(diode row ,row col ,col))
+                                 (net `(row ,row))))))))))

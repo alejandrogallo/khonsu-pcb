@@ -65,11 +65,7 @@ The MODULE should be an s-expression with the contents of the module,
 and the attributes a list with the properties, such as
 
   ((at x y 0.5) (fp_line ....))"
-  (pcase module
-    (`(,(or 'module 'footprint) ,name . ,rest)
-      `(module ,name
-               ,@attributes
-               ,@rest))))
+  (cl-concatenate 'list module attributes))
 
 (defvar pcb-default-setup
   `((last_trace_width 0.2032)
@@ -142,7 +138,7 @@ and the attributes a list with the properties, such as
                             (host pcbnew "(2014-02-26 BZR 4721)-product")
                             (general (links ,(length links))
                                      (no_connects ,(length links))
-                                     (area 15.560886 13.205459 268.695594 107.670601)
+                                     ;;(area 15.560886 13.205459 268.695594 107.670601)
                                      (thickness ,thickness)
                                      (drawings ,(length drawings))
                                      (tracks ,(length tracks))
@@ -179,18 +175,6 @@ and the attributes a list with the properties, such as
                              (uvia_drill 0.127)
                              ,@(mapcar (lambda (net) `(add_net ,(nth 2 net)))
                                        nets))
-                            ;; (gr_text Khonsu (at 131.5 84) (layer F.SilkS)
-                            ;;          (effects (font (size 4 3) (thickness 0.3048))))
-                            ;; (gr_text "Alejandro Gallo" (at 145.25 107.5) (layer F.SilkS)
-                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
-                            ;; (gr_text "GPLv3" (at 68.5 98.5 350) (layer F.SilkS)
-                            ;;          (effects (font (size 1.5 1.1) (thickness 0.2))))
-                            ;; (gr_text https://atreus.technomancy.us (at 63 100.5 350) (layer F.SilkS)
-                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
-                            ;; (gr_text "rev 3, Apr 2019" (at 200.5 101.5 10) (layer F.SilkS)
-                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
-                            ;; (gr_text "© 2014-2019" (at 117 107.75) (layer F.SilkS)
-                            ;;          (effects (font (size 2.032 1.524) (thickness 0.3048))))
                             ,@modules)))
     (if file
         (with-current-buffer (find-file-noselect file)
@@ -232,12 +216,13 @@ to set the position and the pad connections."
       (setf pad-indices (cl-sort pad-indices #'< :key #'car))
       (let ((pad-vars (mapcar (lambda (ip) (intern (format "pad-%s" (car ip))))
                               pad-indices)))
-        `(lambda (x y rotation ,@pad-vars)
+        `(lambda (x y rotation ,@pad-vars &optional apply-args)
            (cl-sublis (list ,@(cl-mapcar (lambda (x y) `(cons ',x ,y))
                                          (mapcar #'cdr pad-indices)
                                          pad-vars))
                       (pcb-apply-module ',result
-                                        `((at ,x ,y ,rotation)))))))))
+                                        `((at ,x ,y ,rotation)
+                                          ,@apply-args))))))))
 
 (defun pcb-module (name)
   "Function to call to get a module from a NAME."
@@ -286,8 +271,8 @@ to set the position and the pad connections."
                                           (size '(1.7526 1.7526))
                                           (drill 1.0922))
   "Make "
-  (assert (memq type '(thru_hole smd connect np_thru_hole)))
-  (assert (memq shape '(circle rect oval trapezoid roundrect custom)))
+  (cl-assert (memq type '(thru_hole smd connect np_thru_hole)))
+  (cl-assert (memq shape '(circle rect oval trapezoid roundrect custom)))
   `(footprint pcb-element-thru-holes
               ,@(let ((index 0))
                   (cl-loop for i below nx
@@ -302,64 +287,34 @@ to set the position and the pad connections."
                                               (drill ,drill)
                                               (layers *.Cu *.SilkS *.Mask))))))))
 
+(cl-defun pcb-element-rect (start end &key layer solid)
+  `(gr_rect (start ,@start)
+            (end ,@end)
+            (layer ,layer)
+            ,(if solid
+                 '(fill solid)
+               '(fill none))))
+
+(cl-defun pcb-element-circle (center radius &key
+                                              (end (list (car center)
+                                                         (+ (cadr center) radius)))
+                                              layer
+                                              solid)
+  `(gr_circle (center ,@center)
+              (end ,@end)
+              (layer ,layer)
+              ,(if solid
+                   '(fill solid)
+                 '(fill none))))
+
+(cl-defun pcb-element-line (start end &key layer)
+  `(gr_line (start ,@start) (end ,@end) (layer ,layer)))
 
 
-(let ((halves-distance 78.84))
-  (defvar khonsu-left)
-  (defvar khonsu-right)
-  (setq khonsu-left
-        (let* ((d 14.0)
-               (l (/ d 2 (cos (/ pi 4))))
-               (newx (lambda (r x)
-                       (+ x (* l (cos (* (/ pi 180) (+ r 45))))))))
+(defun pcb-element-points (&rest points)
+  `(pts ,@(mapcar (lambda (xy) (cons 'xy xy))
+                  points)))
 
-          (print l)
-          (cl-loop for (x y r) in
-                '((20.143677 54.976223 6.2)
-                  (20.143389 35.976223 6.2)
-                  (20.143112 16.976318 6.2)
-                  (47.906918 37.825253 15)
-                  (47.906918 18.825527 15)
-                  (47.907055 -0.17423382 15)
-                  (66.908943 35.446472 15)
-                  (66.908936 16.446556 15)
-                  (66.908943 -2.5535133 15)
-                  (86.644196 48.233135 20.17)
-                  (90.180908 29.238045 20.17)
-                  (90.124535 10.238224 20.17)
-                  (90.068161 -8.7615986 20.17)
-                  (112.7235 21.090336 25)
-                  (112.72351 2.0906093 25)
-                  (112.72351 -16.909651 25)
-                  (118.35073 25.000484 32.8)
-                  (142.13301 -30.871574 56.33))
-                collect (cl-destructuring-bind (x y) (x-rotation-matrix (* (/ pi 180) r) x y)
-                          (list (+ x (* l (cos (* (+ 45 r) (/ pi 180)))))
-                                (+ y (* l (sin (* (+ 45 r) (/ pi 180)))))
-                                (- r))))))
-
-  (setq khonsu-right
-        (let ((max (caar (cl-sort khonsu-left #'> :key #'car))))
-          (cl-loop for (x y r) in khonsu-left
-                collect (list (+ max max halves-distance (- x))
-                              y
-                              (- r)))))
-  (let ((mx (pcb-module "Kailh_socket_MX_optional_reversible_platemount"))
-        (sep 30))
-    (pcb-render
-     :file "test.kicad_pcb"
-     :modules (append
-               (list (pcb-find-module "ArduinoProMicro-ZigZag")
-                     (pcb-apply-module (pcb-element-thru-holes 2 10)
-                                       '((at 0 50))))
-               (cl-loop for (x y rot) in (append khonsu-left khonsu-right)
-                     for i from 1
-                     collect
-                     (funcall mx x y rot
-                              `(net ,i ,(intern (format "COL-%s" i)))
-                              ;; `(net ,i ,(intern (format "COL-%s" i)))
-                              ;; '(net 100 ROW-1)
-                              '(net 100 ROW-1)))))))
 
 (provide 'pcb)
 ;;; pcb.el ends here
